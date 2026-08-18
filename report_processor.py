@@ -155,6 +155,7 @@ def _run_report_body(SRC, OUT, HTML_OUT):
                 if is_today: a[4] += 1
             elif conn_type == "RECONNECTION":
                 a[1] += 1
+                if is_today: a[4] += 1
             elif conn_type == "VOLUNTAORY DISCONNECTION (CLSVO)":
                 a[2] += 1
             elif conn_type == "DUE TO NON PAYMENT (CLSNP)":
@@ -233,7 +234,7 @@ def _run_report_body(SRC, OUT, HTML_OUT):
     ws.row_dimensions[2].height = 22
 
     ws.merge_cells("A3:N3")
-    ws["A3"] = f"DAILY PROVISIONS DASHBOARD  |  Source file last update: 16-AUG-2026 05:36:54  |  Generated {datetime.date.today():%d-%b-%Y}"
+    ws["A3"] = f"DAILY PROVISIONS DASHBOARD  |  Report Date {datetime.date.today():%d-%b-%Y}"
     ws["A3"].font = Font(italic=True, size=9, name="Arial")
 
     HDR1, HDR2, HDR3, FIRST = 5, 6, 7, 8
@@ -244,7 +245,7 @@ def _run_report_body(SRC, OUT, HTML_OUT):
     ws[f"A{HDR1}"].alignment = Alignment(horizontal="center")
 
     headers = ["S.No", "AGM/ Manager(MT)", "BBM NAME", "AREA", "Exclusive/Non Exclusive",
-               "No. Of OLTEs Mapped", "Monthly Target", "Daily Provision", "Cumulative Achievement",
+               "No. Of OLTEs Mapped", "Monthly Target", f"Daily Provision ({TODAY:%d-%b-%Y})", "Cumulative Achievement",
                "% of Achievement"]
     for j, h in enumerate(headers, start=1):
         ws.merge_cells(start_row=HDR2, start_column=j, end_row=HDR3, end_column=j)
