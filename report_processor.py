@@ -23,18 +23,12 @@ UPLOADS_DIR = BASE_DIR / "uploads"
 SRC = Path(os.environ.get("BSNL_INPUT_FILE", str(UPLOADS_DIR / "OLT_Wise_Provisioning.xlsx")))
 
 if not SRC.exists():
-    # Also allow OLT_Wise_Provisioning.xlsx to be kept beside the .py file.
-    alternate_src = BASE_DIR / "OLT_Wise_Provisioning.xlsx"
-    if alternate_src.exists():
-        SRC = alternate_src
-    else:
-        raise FileNotFoundError(
-            "\nOLT_Wise_Provisioning.xlsx was not found.\n\n"
-            "Please put the Excel file either here:\n"
-            f"  {UPLOADS_DIR}\n\n"
-            "or beside this Python file:\n"
-            f"  {BASE_DIR}\n"
-        )
+    raise FileNotFoundError(
+        f"OLT_Wise_Provisioning.xlsx was not found at: {SRC}. "
+        "Please upload the Excel file in the Streamlit app."
+    )
+
+wb = load_workbook(SRC, data_only=True)
 
 OUT = Path(os.environ.get("BSNL_OUTPUT_XLSX", str(BASE_DIR / "outputs" / "FTTH_Warangal_Dashboard.xlsx")))
 HTML_OUT = Path(os.environ.get("BSNL_OUTPUT_HTML", str(BASE_DIR / "outputs" / "FTTH_Warangal_Dashboard.html")))
