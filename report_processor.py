@@ -1,5 +1,7 @@
-from datetime import datetime, date, timedelta
+import os
+import sys
 from pathlib import Path
+from datetime import datetime, date, timedelta
 import base64
 from io import BytesIO
 from collections import defaultdict
@@ -66,30 +68,36 @@ def _run_report_body(SRC, OUT, HTML_OUT):
 
     MONTHS = {"JAN":1,"FEB":2,"MAR":3,"APR":4,"MAY":5,"JUN":6,"JUL":7,"AUG":8,"SEP":9,"OCT":10,"NOV":11,"DEC":12}
 
-    def parse_date(v):
-        """Return a datetime.date for inputs that may be a datetime, date, or 'DD-MMM-YYYY' string.
+def parse_date(v):
+    if v is None:
+        return None
 
-        Raises ValueError on empty/unrecognized values.
-        """
-        if v is None or v == "":
-            raise ValueError("Empty date value")
-        if isinstance(v, datetime):
-            return v.date()
-        if isinstance(v, date):
-            return v
-        s = str(v).strip()
-        # handle cases like '01-AUG-2026 05:36:54' by taking the date part
-        date_part = s.split(" ")[0]
-        try:
-            d_str, mmm, y_str = date_part.split("-")
-            return date(int(y_str), MONTHS[mmm.upper()[:3]], int(d_str))
-        except Exception:
-            # fallback: try ISO parse if available (e.g. '2026-08-01')
+    if isinstance(v, datetime):
+        return v.date()
+
+    if isinstance(v, date):
+        return v
+
+    if isinstance(v, str):
+        v = v.strip()
+
+        if not v:
+            return None
+
+        for fmt in (
+            "%d-%m-%Y",
+            "%d/%m/%Y",
+            "%Y-%m-%d",
+            "%d-%b-%Y",
+            "%d-%b-%y",
+            "%d/%m/%y",
+        ):
             try:
-                return datetime.fromisoformat(date_part).date()
-            except Exception:
-                raise ValueError(f"Unrecognized date format: {v!r}")
+                return datetime.strptime(v, fmt).date()
+            except ValueError:
+                pass
 
+    return None
     # ---------------------------------------------------------------------------
     # 2) Read source workbook (header is row 3 in this export)
     # ---------------------------------------------------------------------------
