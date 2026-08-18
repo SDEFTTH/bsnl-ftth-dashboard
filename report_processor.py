@@ -1,4 +1,5 @@
 import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import base64
 from io import BytesIO
@@ -9,6 +10,8 @@ from openpyxl.utils import get_column_letter
 from openpyxl.chart import BarChart, LineChart, Reference
 from openpyxl.worksheet.table import Table, TableStyleInfo
 from openpyxl.drawing.image import Image as XLImage
+
+
 # ---------------------------------------------------------------------------
 # Embedded BSNL logo (stored permanently inside this Python file)
 # No external BSNL logo.png file is required.
@@ -96,7 +99,8 @@ def _run_report_body(SRC, OUT, HTML_OUT):
     if missing_cols:
         raise SystemExit(f"Missing required columns: {missing_cols}")
 
-    TODAY = datetime.date(2026, 8, 16)   # source export's "Last Update Time" date
+    TODAY = (datetime.now() - timedelta(days=1)).strftime("%d-%m-%Y")   # PROVISIONING DATE AS ON
+    report_day = (datetime.now()).strftime("%d-%m-%Y") #REPORT DATE
 
     # ---------------------------------------------------------------------------
     # 3) Classify + rebuild BBC Name + aggregate (mirrors the VBA logic exactly)
@@ -155,6 +159,7 @@ def _run_report_body(SRC, OUT, HTML_OUT):
                 if is_today: a[4] += 1
             elif conn_type == "RECONNECTION":
                 a[1] += 1
+                if is_today: a[4] += 1
             elif conn_type == "VOLUNTAORY DISCONNECTION (CLSVO)":
                 a[2] += 1
             elif conn_type == "DUE TO NON PAYMENT (CLSNP)":
@@ -225,7 +230,7 @@ def _run_report_body(SRC, OUT, HTML_OUT):
     ws.sheet_view.showGridLines = False
 
     ws.merge_cells("A1:N2")
-    ws["A1"] = "FTTH WARANGAL DASHBOARD"
+    ws["A1"] = "FTTH WARANGAL OA DASHBOARD"
     ws["A1"].font = Font(size=22, bold=True, color=WHITE, name="Arial")
     ws["A1"].fill = PatternFill("solid", fgColor=NAVY)
     ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
@@ -233,18 +238,18 @@ def _run_report_body(SRC, OUT, HTML_OUT):
     ws.row_dimensions[2].height = 22
 
     ws.merge_cells("A3:N3")
-    ws["A3"] = f"DAILY PROVISIONS DASHBOARD  |  Source file last update: 16-AUG-2026 05:36:54  |  Generated {datetime.date.today():%d-%b-%Y}"
+    ws["A3"] = f"DAILY PROVISIONS DASHBOARD  |  Generated on {report_day }"
     ws["A3"].font = Font(italic=True, size=9, name="Arial")
 
     HDR1, HDR2, HDR3, FIRST = 5, 6, 7, 8
     ws.merge_cells(f"A{HDR1}:N{HDR1}")
-    ws[f"A{HDR1}"] = f"BBM WISE PROVISIONING REPORT OF WGL OA AS ON {TODAY:%d-%b-%Y}".upper()
+    ws[f"A{HDR1}"] = f"BBM WISE PROVISIONING REPORT OF WGL OA AS ON {TODAY}".upper()
     ws[f"A{HDR1}"].font = Font(bold=True, size=13, color=WHITE, name="Arial")
     ws[f"A{HDR1}"].fill = PatternFill("solid", fgColor=BLUE)
     ws[f"A{HDR1}"].alignment = Alignment(horizontal="center")
 
     headers = ["S.No", "AGM/ Manager(MT)", "BBM NAME", "AREA", "Exclusive/Non Exclusive",
-               "No. Of OLTEs Mapped", "Monthly Target", "Daily Provision", "Cumulative Achievement",
+               "No. Of OLTEs Mapped", "Monthly Target", f"Daily Provision{TODAY}", "Cumulative Achievement",
                "% of Achievement"]
     for j, h in enumerate(headers, start=1):
         ws.merge_cells(start_row=HDR2, start_column=j, end_row=HDR3, end_column=j)
