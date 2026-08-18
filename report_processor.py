@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 import base64
 from io import BytesIO
@@ -96,7 +96,7 @@ def _run_report_body(SRC, OUT, HTML_OUT):
     if missing_cols:
         raise SystemExit(f"Missing required columns: {missing_cols}")
 
-    TODAY = datetime.now() - timedelta(days=1)   # source export's "Last Update Time" date
+    TODAY = (datetime.now() - timedelta(days=1)).date()   # source export's "Last Update Time" date
 
     # ---------------------------------------------------------------------------
     # 3) Classify + rebuild BBC Name + aggregate (mirrors the VBA logic exactly)
