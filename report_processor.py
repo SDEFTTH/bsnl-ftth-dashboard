@@ -68,51 +68,90 @@ def _run_report_body(SRC, OUT, HTML_OUT):
 
     MONTHS = {"JAN":1,"FEB":2,"MAR":3,"APR":4,"MAY":5,"JUN":6,"JUL":7,"AUG":8,"SEP":9,"OCT":10,"NOV":11,"DEC":12}
 
-def parse_date(v):
-    if v is None:
-        return None
-
-    if isinstance(v, datetime):
-        return v.date()
-
-    if isinstance(v, date):
-        return v
-
-    if isinstance(v, str):
-        v = v.strip()
-
-        if not v:
+    def parse_date(v):
+        if v is None:
             return None
 
-        for fmt in (
-            "%d-%m-%Y",
-            "%d/%m/%Y",
-            "%Y-%m-%d",
-            "%d-%b-%Y",
-            "%d-%b-%y",
-            "%d/%m/%y",
-        ):
-            try:
-                return datetime.strptime(v, fmt).date()
-            except ValueError:
-                pass
+        if isinstance(v, datetime):
+            return v.date()
 
-    return None
+        if isinstance(v, date):
+            return v
+
+        if isinstance(v, str):
+            v = v.strip()
+
+            if not v:
+                return None
+
+            for fmt in (
+                "%d-%m-%Y",
+                "%d/%m/%Y",
+                "%Y-%m-%d",
+                "%d-%b-%Y",
+                "%d-%b-%y",
+                "%d/%m/%y",
+            ):
+                try:
+                    return datetime.strptime(v, fmt).date()
+                except ValueError:
+                    pass
+
+        return None
     # ---------------------------------------------------------------------------
-    # 2) Read source workbook (header is row 3 in this export)
+    # 2) Read source workbook - no restriction on filename/folder/sheet name.
+    #    Pick a usable sheet automatically, then auto-detect which row is the
+    #    real header row (instead of assuming it is always row 3), by scanning
+    #    the first few rows for the one containing the most REQUIRED columns.
     # ---------------------------------------------------------------------------
+    REQUIRED = ["BBC Name", "CLSR", "Ont Acquisition Type", "Disconnection reason",
+                "Completion_Date", "Maintenance Franchisee", "OLT IP", "Order Id"]
+
     wb_src = load_workbook(SRC, read_only=True, data_only=True)
     try:
-        ws_src = wb_src['Sheet0']
+        if 'Sheet0' in wb_src.sheetnames:
+            ws_src = wb_src['Sheet0']
+        else:
+            # Any random export: fall back to the first sheet that actually
+            # has rows, so this isn't tied to one specific sheet name.
+            ws_src = None
+            for name in wb_src.sheetnames:
+                cand = wb_src[name]
+                if cand.max_row and cand.max_row > 0:
+                    ws_src = cand
+                    break
+            if ws_src is None:
+                ws_src = wb_src[wb_src.sheetnames[0]]
+
+        all_rows = list(ws_src.iter_rows(values_only=True))
+
+        def score_header(row):
+            if not row:
+                return -1
+            names = {str(v).strip() for v in row if v is not None}
+            return sum(1 for req in REQUIRED if req in names)
+
+        # Scan the first 10 rows for the best header-row candidate instead of
+        # hardcoding row index 2 (Excel row 3).
+        header_row_idx = None
+        best_score = 0
+        for i, row in enumerate(all_rows[:10]):
+            s = score_header(row)
+            if s > best_score:
+                best_score = s
+                header_row_idx = i
+
+        if header_row_idx is None or best_score == 0:
+            raise ValueError(
+                "Could not find a header row containing the expected columns "
+                f"({REQUIRED}) in the first 10 rows of sheet '{ws_src.title}'. "
+                "Please check the uploaded file's layout."
+            )
+
+        hdr = all_rows[header_row_idx]
         raw_rows = []
-        hdr = None
-        for i, r in enumerate(ws_src.iter_rows(values_only=True)):
-            if i == 2:
-                hdr = r
-                continue
-            if i < 3:
-                continue
-            if r[0] is None or r[0] == '':
+        for r in all_rows[header_row_idx + 1:]:
+            if r is None or r[0] is None or r[0] == '':
                 continue
             raw_rows.append(r)
     finally:
@@ -123,8 +162,6 @@ def parse_date(v):
 
     idx = {name: j for j, name in enumerate(hdr) if name}
 
-    REQUIRED = ["BBC Name", "CLSR", "Ont Acquisition Type", "Disconnection reason",
-                "Completion_Date", "Maintenance Franchisee", "OLT IP", "Order Id"]
     missing_cols = [c for c in REQUIRED if c not in idx]
     if missing_cols:
         raise ValueError(f"Missing required columns: {missing_cols}")
@@ -541,6 +578,14 @@ def parse_date(v):
     tot_net = tot_cum - (tot["clsvo"] + tot["clsnp"])
     tot_pct = (tot_cum / tot["target"] * 100) if tot["target"] else 0
 
+    # Same guard as the Excel logo: don't let a corrupted/incomplete base64
+    # constant break the HTML banner - fall back to a text-only banner.
+    try:
+        base64.b64decode(BSNL_LOGO_B64, validate=True)
+        logo_html = f'<img class="logo-img" src="data:image/png;base64,{BSNL_LOGO_B64}" alt="BSNL Logo">'
+    except Exception:
+        logo_html = ""
+
     html = f"""<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
     <title>FTTH Warangal Dashboard</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
@@ -568,7 +613,7 @@ def parse_date(v):
     button.dl{{margin-top:16px;background:#1f4eba;color:#fff;border:0;padding:10px 18px;border-radius:6px;cursor:pointer;font-size:14px;}}
     button.dl:hover{{background:#173a8f;}}
     </style></head><body>
-    <div class="banner"><img class="logo-img" src="data:image/png;base64,{BSNL_LOGO_B64}" alt="BSNL Logo"><div><h1>FTTH WARANGAL DASHBOARD</h1>
+    <div class="banner">{logo_html}<div><h1>FTTH WARANGAL DASHBOARD</h1>
     <div class="sub">BBM Wise Provisioning Report of WGL OA as on {TODAY:%d-%b-%Y} &middot; source export last updated 16-AUG-2026 05:36:54</div></div></div>
     <div class="kpis">
     <div class="kpi"><div class="v">{tot['target']}</div><div class="l">Monthly Target</div></div>
@@ -639,11 +684,16 @@ def parse_date(v):
     wsd["S1"].alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
     wsd["S1"].fill = PatternFill("solid", fgColor=WHITE)
 
-    # Embedded BSNL logo - no external image file required
-    logo = XLImage(BytesIO(base64.b64decode(BSNL_LOGO_B64)))
-    logo.width = 130
-    logo.height = 59
-    wsd.add_image(logo, "A1")
+    # Embedded BSNL logo - no external image file required.
+    # Guarded: the embedded base64 constant can be missing/corrupted (e.g. if
+    # it was pasted in incompletely), which must never crash report generation.
+    try:
+        logo = XLImage(BytesIO(base64.b64decode(BSNL_LOGO_B64)))
+        logo.width = 130
+        logo.height = 59
+        wsd.add_image(logo, "A1")
+    except Exception as e:
+        print(f"Warning: could not embed logo on Dashboard sheet ({e}); skipping logo.")
 
 
     # ---- KPI cards row (6 cards, matching the reference's 6-card band) ----
