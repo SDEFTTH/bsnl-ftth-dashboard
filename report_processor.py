@@ -96,7 +96,7 @@ def _run_report_body(SRC, OUT, HTML_OUT):
     if missing_cols:
         raise SystemExit(f"Missing required columns: {missing_cols}")
 
-    TODAY = datetime.date(2026, 8, 16)   # source export's "Last Update Time" date
+    TODAY = (date.today() - timedelta(days=1)).strftime("%d-%m-%Y")   # source export's "Last Update Time" date
 
     # ---------------------------------------------------------------------------
     # 3) Classify + rebuild BBC Name + aggregate (mirrors the VBA logic exactly)
