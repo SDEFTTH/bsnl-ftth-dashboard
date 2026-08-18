@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, date, timedelta
 from pathlib import Path
 import base64
 from io import BytesIO
@@ -65,12 +65,12 @@ def _run_report_body(SRC, OUT, HTML_OUT):
     def parse_date(v):
         if isinstance(v, datetime):
             return v.date()
-        if isinstance(v, datetime.date):
+        if isinstance(v, date):
             return v
         s = str(v).strip()
         date_part = s.split(" ")[0]
         d, mmm, y = date_part.split("-")
-        return datetime.date(int(y), MONTHS[mmm.upper()[:3]], int(d))
+        return date(int(y), MONTHS[mmm.upper()[:3]], int(d))
 
     # ---------------------------------------------------------------------------
     # 2) Read source workbook (header is row 3 in this export)
